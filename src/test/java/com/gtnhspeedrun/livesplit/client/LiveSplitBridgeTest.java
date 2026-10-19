@@ -19,7 +19,8 @@ import com.gtnhspeedrun.livesplit.split.TimerSignal;
 
 /**
  * The bridge drives a real socket to each kind of timer. Signals arrive out of order and twice, and the timer still
- * starts once and splits once per split, at the split's game time.
+ * starts once and splits once per split, at the split's game time. After a rollback, the timer is unsplit back to the
+ * run's progress.
  */
 class LiveSplitBridgeTest {
 
@@ -55,6 +56,7 @@ class LiveSplitBridgeTest {
             final LiveSplitBridge bridge = startBridge(new DesktopSink(server.port()));
             // a lagging server: the split at tick 80 arrives before the game time signal that passes tick 69
             bridge.offer(new TimerSignal.RunStarted());
+            bridge.offer(new TimerSignal.CaughtUp(3));
             bridge.offer(new TimerSignal.GameTime(69));
             awaitTrue(() -> timer.splitIndex() == 0);
             bridge.offer(new TimerSignal.SplitReached(0, 80));
@@ -75,6 +77,7 @@ class LiveSplitBridgeTest {
         try (FakeDesktopServer server = new FakeDesktopServer(timer)) {
             final LiveSplitBridge bridge = startBridge(new DesktopSink(server.port()));
             bridge.offer(new TimerSignal.RunStarted());
+            bridge.offer(new TimerSignal.CaughtUp(3));
             bridge.offer(new TimerSignal.GameTime(20));
             awaitTrue(
                 () -> timer.gameTime()
@@ -88,9 +91,84 @@ class LiveSplitBridgeTest {
         }
     }
 
+    @Test
+    void catchUpOnAStoppedTimerStartsAndSplitsAtEachReachedGameTime() throws IOException, InterruptedException {
+        final FakeTimer timer = new FakeTimer(3);
+        try (FakeDesktopServer server = new FakeDesktopServer(timer)) {
+            final LiveSplitBridge bridge = startBridge(new DesktopSink(server.port()));
+            offerCatchUp(bridge, 3, new TimerSignal.SplitReached(0, 20), new TimerSignal.SplitReached(1, 40));
+            awaitTrue(() -> timer.splitIndex() == 2);
+        }
+        assertEquals(List.of("start", "split@0:00:01.00", "split@0:00:02.00"), timer.history());
+    }
+
+    @Test
+    void timerAheadOfTheProgressIsNotUnsplitBeforeTheCatchUpEnds() throws IOException, InterruptedException {
+        final FakeTimer timer = new FakeTimer(3);
+        timer.start();
+        timer.split();
+        timer.split();
+        try (FakeDesktopServer server = new FakeDesktopServer(timer)) {
+            final LiveSplitBridge bridge = startBridge(new DesktopSink(server.port()));
+            bridge.offer(new TimerSignal.RunStarted());
+            bridge.offer(new TimerSignal.SplitReached(0, 20));
+            Thread.sleep(1_500);
+            assertEquals(2, timer.splitIndex());
+
+            bridge.offer(new TimerSignal.CaughtUp(3));
+            awaitTrue(() -> timer.splitIndex() == 1);
+        }
+    }
+
+    @Test
+    void rejoinAfterARollbackUnsplitsTheRewoundSplitAndSplitsItAgainAtTheNewTime()
+        throws IOException, InterruptedException {
+        final FakeTimer timer = new FakeTimer(3);
+        try (FakeDesktopServer server = new FakeDesktopServer(timer)) {
+            final LiveSplitBridge bridge = startBridge(new DesktopSink(server.port()));
+            offerCatchUp(bridge, 3, new TimerSignal.SplitReached(0, 20), new TimerSignal.SplitReached(1, 40));
+            awaitTrue(() -> timer.splitIndex() == 2);
+            bridge.clearRun();
+            // the server restarted on a save from before split 1
+            offerCatchUp(bridge, 3, new TimerSignal.SplitReached(0, 20));
+            awaitTrue(() -> timer.splitIndex() == 1);
+            bridge.offer(new TimerSignal.SplitReached(1, 50));
+            awaitTrue(() -> timer.splitIndex() == 2);
+        }
+        assertEquals(
+            List.of("start", "split@0:00:01.00", "split@0:00:02.00", "unsplit", "split@0:00:02.50"),
+            timer.history());
+    }
+
+    @Test
+    void endedTimerIsUnsplitWhenTheProgressEndsEarlier() throws IOException, InterruptedException {
+        final FakeTimer timer = new FakeTimer(2);
+        timer.start();
+        timer.split();
+        timer.split();
+        try (FakeDesktopServer server = new FakeDesktopServer(timer)) {
+            final LiveSplitBridge bridge = startBridge(new DesktopSink(server.port()));
+            offerCatchUp(bridge, 2, new TimerSignal.SplitReached(0, 20));
+            awaitTrue(
+                () -> timer.phase()
+                    .equals("Running"));
+            assertEquals(1, timer.splitIndex());
+        }
+    }
+
+    /** Offer the signals of a welcome: the run start, {@code splits}, and the end of the catch-up. */
+    private static void offerCatchUp(LiveSplitBridge bridge, int segmentCount, TimerSignal.SplitReached... splits) {
+        bridge.offer(new TimerSignal.RunStarted());
+        for (TimerSignal.SplitReached split : splits) {
+            bridge.offer(split);
+        }
+        bridge.offer(new TimerSignal.CaughtUp(segmentCount));
+    }
+
     /** Start the run, reach split 1 before split 0, reach both again, then reach split 2. */
     private static void runScenario(LiveSplitBridge bridge, FakeTimer timer) throws InterruptedException {
         bridge.offer(new TimerSignal.RunStarted());
+        bridge.offer(new TimerSignal.CaughtUp(3));
         bridge.offer(new TimerSignal.GameTime(20));
         bridge.offer(new TimerSignal.SplitReached(1, 60));
         awaitTrue(() -> timer.splitIndex() == 2);

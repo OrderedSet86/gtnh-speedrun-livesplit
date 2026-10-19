@@ -1,7 +1,0 @@
-{
-  "start": {"event": "timing_started"},
-  "splits": [
-    {"name": "Nether", "event": "dim_first_visit", "match": {"dim": -1}},
-    {"name": "Moon", "event": "dim_first_visit", "match": {"dim": 28}}
-  ]
-}

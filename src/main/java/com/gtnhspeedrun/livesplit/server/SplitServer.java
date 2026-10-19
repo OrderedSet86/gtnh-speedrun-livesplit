@@ -12,24 +12,27 @@ import org.apache.logging.log4j.Logger;
 
 import com.gtnhspeedrun.livesplit.audit.AuditLink;
 import com.gtnhspeedrun.livesplit.net.SplitChannel;
-import com.gtnhspeedrun.livesplit.split.SplitRules;
-import com.gtnhspeedrun.livesplit.split.SplitRulesException;
-import com.gtnhspeedrun.livesplit.split.SplitRulesFile;
-import com.gtnhspeedrun.livesplit.split.TimerSignal;
+import com.gtnhspeedrun.livesplit.split.MilestoneCatalog;
+import com.gtnhspeedrun.livesplit.split.MilestoneFile;
+import com.gtnhspeedrun.livesplit.split.MilestoneRules;
+import com.gtnhspeedrun.livesplit.split.RunRecord;
+import com.gtnhspeedrun.livesplit.split.RunSignal;
+import com.gtnhspeedrun.livesplit.split.SplitFileException;
 
 import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.Loader;
 
 /**
- * Run the server side of the mod: read the split rules once, link them to the audit mod, and broadcast timer signals
+ * Run the server side of the mod: read the milestone rules once, link them to the audit mod, and broadcast run signals
  * while a server runs. In singleplayer one game opens many worlds, and each world gets a new broadcast.
  */
 public final class SplitServer {
 
     private final Logger log;
     // audit listeners add signals on any thread. SplitBroadcast drains the queue on the server tick
-    private final Queue<TimerSignal> pendingSignals = new ConcurrentLinkedQueue<>();
-    private boolean linked;
+    private final Queue<RunSignal> pendingSignals = new ConcurrentLinkedQueue<>();
+    private final RunRecord runRecord = new RunRecord();
+    private @Nullable MilestoneCatalog catalog;
     private @Nullable SplitBroadcast broadcast;
 
     public SplitServer(Logger log) {
@@ -37,7 +40,8 @@ public final class SplitServer {
     }
 
     /**
-     * Read the rules file and subscribe to the audit. Without the audit mod, or with a bad rules file, nothing runs.
+     * Read the milestone file and subscribe to the audit. Without the audit mod, or with a bad milestone file, nothing
+     * runs.
      */
     public void link(Path configDir) {
         if (!Loader.isModLoaded(AuditLink.AUDIT_MODID)) {
@@ -48,28 +52,31 @@ public final class SplitServer {
             log.warn("audit.unsupported_api");
             return;
         }
-        final SplitRules rules;
+        final MilestoneRules rules;
         try {
-            rules = SplitRulesFile.readOrCreate(configDir);
-        } catch (SplitRulesException exception) {
+            rules = MilestoneFile.readOrCreate(configDir);
+        } catch (SplitFileException exception) {
             log.error("rules.rejected reason={}", exception.getMessage(), exception);
             return;
         }
-        AuditLink.subscribe(rules, pendingSignals);
-        linked = true;
+        AuditLink.subscribe(rules, runRecord, pendingSignals);
+        catalog = rules.catalog();
         log.info(
-            "audit.linked splits={}",
-            rules.splits()
+            "audit.linked milestones={}",
+            rules.rules()
                 .size());
     }
 
     public void start(MinecraftServer server) {
-        if (!linked) {
+        if (catalog == null) {
             return;
         }
-        pendingSignals.clear();
+        // The audit replays the world's history in the audit's serverStarting, which can run before this method.
+        // The run is cleared at stop(), never here.
         SplitChannel.clearSubscribers();
-        broadcast = new SplitBroadcast(server, pendingSignals, AuditLink::readIgtTicks);
+        broadcast = new SplitBroadcast(
+            server,
+            new SplitBroadcast.RunFeed(pendingSignals, runRecord, AuditLink::readIgtTicks, catalog));
         FMLCommonHandler.instance()
             .bus()
             .register(broadcast);
@@ -83,5 +90,7 @@ public final class SplitServer {
             broadcast = null;
         }
         SplitChannel.clearSubscribers();
+        pendingSignals.clear();
+        runRecord.clear();
     }
 }

@@ -3,10 +3,13 @@ package com.gtnhspeedrun.livesplit.audit;
 import java.util.Queue;
 
 import com.gtnhspeedrun.audit.api.AuditEvents;
-import com.gtnhspeedrun.livesplit.split.SplitRules;
-import com.gtnhspeedrun.livesplit.split.TimerSignal;
+import com.gtnhspeedrun.livesplit.split.MilestoneRules;
+import com.gtnhspeedrun.livesplit.split.RunRecord;
+import com.gtnhspeedrun.livesplit.split.RunSignal;
 
-/** Connect the split rules to the log events of the audit mod. Call this class only when the audit mod is loaded. */
+/**
+ * Connect the milestone rules to the log events of the audit mod. Call this class only when the audit mod is loaded.
+ */
 public final class AuditLink {
 
     public static final String AUDIT_MODID = "gtnhspeedrunaudit";
@@ -22,11 +25,19 @@ public final class AuditLink {
         }
     }
 
-    /** Queue a signal for each rule that a logged event matches, in every server from now on. */
-    public static void subscribe(SplitRules rules, Queue<TimerSignal> signals) {
-        AuditEvents.subscribe(
-            rules.collectEventTypes(),
-            (type, data, igtTicks) -> signals.addAll(rules.collectSignals(type, data, igtTicks)));
+    /**
+     * Queue a signal for each rule that a logged event matches, in every server from now on. Each world's history comes
+     * first. A milestone's first reach goes into {@code runRecord}, and a later reach of the milestone is dropped.
+     */
+    public static void subscribe(MilestoneRules rules, RunRecord runRecord, Queue<RunSignal> signals) {
+        AuditEvents.subscribeWithHistory(rules.collectEventTypes(), (type, data, igtTicks) -> {
+            for (RunSignal signal : rules.collectSignals(type, data, igtTicks)) {
+                if (!(signal instanceof RunSignal.MilestoneReached reached)
+                    || runRecord.recordReach(reached.milestoneId(), reached.igtTicks())) {
+                    signals.add(signal);
+                }
+            }
+        });
     }
 
     public static long readIgtTicks() {

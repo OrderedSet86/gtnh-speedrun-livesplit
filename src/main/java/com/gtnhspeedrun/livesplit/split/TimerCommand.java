@@ -9,6 +9,9 @@ public sealed interface TimerCommand {
 
     record SkipSplit() implements TimerCommand {}
 
+    /** Undo the last split or skip. */
+    record Unsplit() implements TimerCommand {}
+
     record SetGameTime(long igtTicks) implements TimerCommand {
 
         /**
@@ -22,6 +25,11 @@ public sealed interface TimerCommand {
          * </pre>
          */
         public String timeText() {
+            return formatGameTime(igtTicks);
+        }
+
+        /** Format {@code igtTicks} as {@link #timeText} does. */
+        public static String formatGameTime(long igtTicks) {
             final long TICKS_PER_SECOND = 20;
             final long HUNDREDTHS_PER_TICK = 5;
             final long totalSeconds = igtTicks / TICKS_PER_SECOND;

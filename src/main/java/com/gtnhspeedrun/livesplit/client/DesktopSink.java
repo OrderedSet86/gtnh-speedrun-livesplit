@@ -109,6 +109,7 @@ public final class DesktopSink implements TimerSink {
             case TimerCommand.Start start -> List.of("starttimer");
             case TimerCommand.Split split -> List.of("split");
             case TimerCommand.SkipSplit skip -> List.of("skipsplit");
+            case TimerCommand.Unsplit unsplit -> List.of("unsplit");
             // a runner can unpause the game time by hand. LiveSplit counts unpaused game time up with real time
             case TimerCommand.SetGameTime gameTime -> List.of("pausegametime", "setgametime " + gameTime.timeText());
         };

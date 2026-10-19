@@ -34,6 +34,17 @@ final class FakeTimer {
         advance();
     }
 
+    /** Undo the last split or skip. An ended timer runs again on its last split. */
+    synchronized void unsplit() {
+        history.add("unsplit");
+        if (phase.equals("Ended")) {
+            phase = "Running";
+            splitIndex--;
+        } else if (phase.equals("Running") && splitIndex > 0) {
+            splitIndex--;
+        }
+    }
+
     synchronized void setGameTime(String time) {
         gameTime = time;
     }
@@ -55,7 +66,7 @@ final class FakeTimer {
         return gameTime;
     }
 
-    /** Return the starts, splits with their game time, and skips, in order. */
+    /** Return the starts, splits with their game time, skips and unsplits, in order. */
     synchronized List<String> history() {
         return new ArrayList<>(history);
     }

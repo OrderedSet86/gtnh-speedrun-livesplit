@@ -11,10 +11,10 @@ import com.google.gson.JsonPrimitive;
  * A number matches a number of the same value, and a string matches only a string.
  *
  * <pre>
- *     {"name": "Moon", "event": "dim_first_visit", "match": {"dim": 28}}
+ *     {"event": "dim_first_visit", "match": {"dim": 28}}
  * </pre>
  */
-public record EventMatch(String name, String eventType, Map<String, JsonPrimitive> fields) {
+public record EventMatch(String eventType, Map<String, JsonPrimitive> fields) {
 
     public EventMatch {
         fields = Map.copyOf(fields);

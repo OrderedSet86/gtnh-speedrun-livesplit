@@ -1,0 +1,42 @@
+{
+  "game": {"name": "GregTech: New Horizons", "category": "Moon%", "icon": "gregtech:gt.blockmachines@1000"},
+  "start": {"event": "timing_started"},
+  "defaultSplits": ["coke_oven", "nether", "bricked_blast_furnace", "electric_blast_furnace", "moon"],
+  "milestones": [
+    {
+      "id": "coke_oven",
+      "name": "Coke Oven",
+      "icon": "gregtech:gt.blockmachines@236",
+      "event": "multiblock_formed",
+      "match": {"class": "MTECokeOven"}
+    },
+    {
+      "id": "nether",
+      "name": "Nether",
+      "icon": "minecraft:netherrack@0",
+      "event": "dim_first_visit",
+      "match": {"dim": -1}
+    },
+    {
+      "id": "bricked_blast_furnace",
+      "name": "Bricked Blast Furnace",
+      "icon": "gregtech:gt.blockmachines@140",
+      "event": "multiblock_formed",
+      "match": {"class": "MTEBrickedBlastFurnace"}
+    },
+    {
+      "id": "electric_blast_furnace",
+      "name": "Electric Blast Furnace",
+      "icon": "gregtech:gt.blockmachines@1000",
+      "event": "multiblock_formed",
+      "match": {"class": "MTEElectricBlastFurnace"}
+    },
+    {
+      "id": "moon",
+      "name": "Moon",
+      "icon": "GalacticraftCore:tile.moonBlock@4",
+      "event": "dim_first_visit",
+      "match": {"dim": 28}
+    }
+  ]
+}

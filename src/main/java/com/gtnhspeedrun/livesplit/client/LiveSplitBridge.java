@@ -37,6 +37,8 @@ public final class LiveSplitBridge {
     private final SortedMap<Integer, Long> reachedSplits = new TreeMap<>();
     private boolean runStarted;
     private long igtTicks;
+    private boolean caughtUp;
+    private int segmentCount;
 
     public LiveSplitBridge(List<TimerSink> sinks, boolean skipMissedSplits, Logger log) {
         for (TimerSink sink : sinks) {
@@ -61,6 +63,11 @@ public final class LiveSplitBridge {
         clearRequested.set(true);
     }
 
+    /**
+     * Prepare the sinks, then apply each batch of signals and bring each timer to the run's progress. No timer is
+     * reconciled before the {@link TimerSignal.CaughtUp} signal. A loop with no signal reconciles after
+     * {@code IDLE_POLL_MS}.
+     */
     private void runWorker() {
         final long IDLE_POLL_MS = 1_000;
         prepareSinks();
@@ -73,7 +80,8 @@ public final class LiveSplitBridge {
                 for (TimerSignal signal = first; signal != null; signal = signals.poll()) {
                     apply(signal);
                 }
-                if (runStarted || igtTicks > 0 || !reachedSplits.isEmpty()) {
+                // before the catch-up ends, a timer can be ahead of the signals so far, and must not be unsplit
+                if (caughtUp && (runStarted || igtTicks > 0 || !reachedSplits.isEmpty())) {
                     for (SinkLink link : links) {
                         reconcile(link);
                     }
@@ -100,6 +108,8 @@ public final class LiveSplitBridge {
         reachedSplits.clear();
         runStarted = false;
         igtTicks = 0;
+        caughtUp = false;
+        segmentCount = 0;
         for (SinkLink link : links) {
             link.mayStart = false;
         }
@@ -120,6 +130,10 @@ public final class LiveSplitBridge {
                 igtTicks = Math.max(igtTicks, reached.igtTicks());
             }
             case TimerSignal.GameTime gameTime -> igtTicks = gameTime.igtTicks();
+            case TimerSignal.CaughtUp caughtUpSignal -> {
+                caughtUp = true;
+                segmentCount = caughtUpSignal.segmentCount();
+            }
         }
     }
 
@@ -145,8 +159,10 @@ public final class LiveSplitBridge {
                 if (state.phase() != TimerState.Phase.NOT_RUNNING) {
                     link.mayStart = false;
                 }
-                final List<TimerCommand> commands = SplitGuard
-                    .plan(state, new RunProgress(link.mayStart, reachedSplits, igtTicks), skipMissedSplits);
+                final List<TimerCommand> commands = SplitGuard.plan(
+                    state,
+                    new RunProgress(link.mayStart, reachedSplits, igtTicks, segmentCount),
+                    skipMissedSplits);
                 for (TimerCommand command : commands) {
                     link.sink.send(command);
                 }

@@ -69,6 +69,7 @@ final class FakeLiveSplitOne implements AutoCloseable {
             case "start" -> timer.start();
             case "split" -> timer.split();
             case "skipSplit" -> timer.skipSplit();
+            case "undoSplit" -> timer.unsplit();
             case "setGameTime" -> timer.setGameTime(
                 command.get("time")
                     .getAsString());

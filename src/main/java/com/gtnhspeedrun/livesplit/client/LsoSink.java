@@ -152,6 +152,7 @@ public final class LsoSink implements TimerSink {
             case TimerCommand.Start start -> List.of(command("start"));
             case TimerCommand.Split split -> List.of(command("split"));
             case TimerCommand.SkipSplit skip -> List.of(command("skipSplit"));
+            case TimerCommand.Unsplit unsplit -> List.of(command("undoSplit"));
             case TimerCommand.SetGameTime gameTime -> {
                 // a new attempt starts with the game time running. The game time stays running after a setGameTime
                 final JsonObject setGameTime = command("setGameTime");

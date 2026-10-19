@@ -58,6 +58,7 @@ final class FakeDesktopServer implements AutoCloseable {
             case "starttimer" -> timer.start();
             case "split" -> timer.split();
             case "skipsplit" -> timer.skipSplit();
+            case "unsplit" -> timer.unsplit();
             case "setgametime" -> timer.setGameTime(parts[1]);
             case "getcurrenttimerphase" -> {
                 return timer.phase();

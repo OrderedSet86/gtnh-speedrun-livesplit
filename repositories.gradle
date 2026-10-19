@@ -1,0 +1,14 @@
+// Add any additional repositories for your dependencies here.
+
+repositories {
+    // The audit mod is not on a public maven yet. Publish it locally first:
+    //   cd ../gtnh-speedrun-audit && VERSION=local ./gradlew publishToMavenLocal
+    exclusiveContent {
+        forRepository {
+            mavenLocal()
+        }
+        filter {
+            includeGroup "com.gtnhspeedrun.audit"
+        }
+    }
+}

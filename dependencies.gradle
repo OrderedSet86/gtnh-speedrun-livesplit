@@ -1,0 +1,13 @@
+// Add your dependencies here
+
+dependencies {
+    // the audit API (com.gtnhspeedrun.audit.api). devOnlyNonPublishable puts the audit mod on the dev runtime too, so
+    // runClient and runServer have events to split on. The published jar declares no hard dependency on the audit
+    compileOnly('com.gtnhspeedrun.audit:gtnh-speedrun-audit:local:dev') { transitive = false }
+    devOnlyNonPublishable('com.gtnhspeedrun.audit:gtnh-speedrun-audit:local:dev') { transitive = false }
+    // the audit jar's manifest names the Mixin tweaker, and this mod has no mixins of its own to pull a mixin loader in
+    devOnlyNonPublishable('io.github.legacymoddingmc:unimixins:0.2.1:dev')
+
+    testImplementation('org.junit.jupiter:junit-jupiter:5.10.2')
+    testRuntimeOnly('org.junit.platform:junit-platform-launcher:1.10.2')
+}

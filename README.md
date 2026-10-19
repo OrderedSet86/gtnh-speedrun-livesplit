@@ -20,11 +20,14 @@ Desktop LiveSplit:
 
 LiveSplit One:
 
-1. Settings, Server Connection, Connect, then `ws://localhost:16835`.
-2. Compare against Game Time.
+1. Start Minecraft. The mod listens on `ws://localhost:16835` from the main menu on.
+2. Settings, Server Connection, Connect, then `ws://localhost:16835`.
+3. Compare against Game Time.
 
-A browser can block the public LiveSplit One page from connecting to `localhost`. In Chrome, allow the local network
-access prompt.
+LiveSplit One doesn't reconnect by itself. After a Minecraft restart, connect again.
+
+A browser can block the public LiveSplit One page from connecting to `localhost`. Chrome asks for Local Network Access
+("Apps on device" in newer versions). Allow it for one.livesplit.org.
 
 ## Splits file
 

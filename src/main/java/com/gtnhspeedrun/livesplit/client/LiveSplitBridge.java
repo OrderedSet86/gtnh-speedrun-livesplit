@@ -63,6 +63,7 @@ public final class LiveSplitBridge {
 
     private void runWorker() {
         final long IDLE_POLL_MS = 1_000;
+        prepareSinks();
         try {
             while (true) {
                 final TimerSignal first = signals.poll(IDLE_POLL_MS, TimeUnit.MILLISECONDS);
@@ -84,6 +85,17 @@ public final class LiveSplitBridge {
         }
     }
 
+    /** Prepare each sink once. A failure is logged, and {@link TimerSink#connect} tries again once the run starts. */
+    private void prepareSinks() {
+        for (SinkLink link : links) {
+            try {
+                link.sink.prepare();
+            } catch (IOException exception) {
+                log.warn("livesplit.unreachable sink={} reason={}", link.sink.describe(), exception.getMessage());
+            }
+        }
+    }
+
     private void clearProgress() {
         reachedSplits.clear();
         runStarted = false;
@@ -101,8 +113,12 @@ public final class LiveSplitBridge {
                     link.mayStart = true;
                 }
             }
-            // the first time a split was reached is the split's time
-            case TimerSignal.SplitReached reached -> reachedSplits.putIfAbsent(reached.splitIndex(), reached.igtTicks());
+            // the first time a split was reached is the split's time. The split can be newer than the last game time
+            // signal, and the game time must not go back below the split's time
+            case TimerSignal.SplitReached reached -> {
+                reachedSplits.putIfAbsent(reached.splitIndex(), reached.igtTicks());
+                igtTicks = Math.max(igtTicks, reached.igtTicks());
+            }
             case TimerSignal.GameTime gameTime -> igtTicks = gameTime.igtTicks();
         }
     }

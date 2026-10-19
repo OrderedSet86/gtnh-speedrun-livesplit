@@ -13,6 +13,12 @@ public interface TimerSink {
 
     boolean isConnected();
 
+    /**
+     * Get ready for the timer before the run starts. A sink that waits for the timer to connect to it starts listening
+     * here, so the runner can connect the timer before the first signal.
+     */
+    default void prepare() throws IOException {}
+
     /** Make the timer reachable, or throw when it isn't. */
     void connect() throws IOException;
 

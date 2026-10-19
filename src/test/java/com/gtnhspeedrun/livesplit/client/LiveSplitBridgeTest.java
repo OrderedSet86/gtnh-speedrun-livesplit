@@ -40,13 +40,29 @@ class LiveSplitBridgeTest {
         final FakeTimer timer = new FakeTimer(3);
         final int port = findFreePort();
         final LiveSplitBridge bridge = startBridge(new LsoSink(port));
-        // the sink listens once the bridge has a run to sync
-        bridge.offer(new TimerSignal.GameTime(1));
+        // the runner connects LiveSplit One before the run starts, and LiveSplit One doesn't retry a refused connection
         awaitTrue(() -> isListening(port));
         try (FakeLiveSplitOne liveSplitOne = new FakeLiveSplitOne(timer, port)) {
             runScenario(bridge, timer);
         }
         assertScenarioResult(timer);
+    }
+
+    @Test
+    void gameTimeStaysAtASplitNewerThanTheLastGameTime() throws IOException, InterruptedException {
+        final FakeTimer timer = new FakeTimer(3);
+        try (FakeDesktopServer server = new FakeDesktopServer(timer)) {
+            final LiveSplitBridge bridge = startBridge(new DesktopSink(server.port()));
+            // a lagging server: the split at tick 80 arrives before the game time signal that passes tick 69
+            bridge.offer(new TimerSignal.RunStarted());
+            bridge.offer(new TimerSignal.GameTime(69));
+            awaitTrue(() -> timer.splitIndex() == 0);
+            bridge.offer(new TimerSignal.SplitReached(0, 80));
+            awaitTrue(() -> timer.splitIndex() == 1);
+            Thread.sleep(1_500);
+
+            assertEquals("0:00:04.00", timer.gameTime());
+        }
     }
 
     @ParameterizedTest

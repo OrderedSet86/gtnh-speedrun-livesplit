@@ -67,12 +67,18 @@ public final class LsoSink implements TimerSink {
         return channel != null && channel.isActive();
     }
 
-    /** Listen on the port, once, and throw until LiveSplit One has connected. */
+    /** Listen on the port, once. LiveSplit One doesn't retry a refused connection, so listen before the run starts. */
     @Override
-    public void connect() throws IOException {
+    public void prepare() throws IOException {
         if (eventLoop == null) {
             eventLoop = listen();
         }
+    }
+
+    /** Listen on the port, once, and throw until LiveSplit One has connected. */
+    @Override
+    public void connect() throws IOException {
+        prepare();
         if (!isConnected()) {
             throw new IOException("no LiveSplit One connected to ws://localhost:" + port);
         }
